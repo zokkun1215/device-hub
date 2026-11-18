@@ -54,6 +54,17 @@ docs/FRONTEND.md        フロントエンドの構造
   プロファイル4・工場リセット — いずれも往復確認。**ドングル 373b:1278** は同一 16B プロトコル
   中継 + cmd29 ドングル FW + 休眠検知 (asleep/HubEvent・覚醒で CID/MID 再確定)。
   未対応: マクロ @768・dynamicSensitivity・sensorAngle・BT・FW 更新 — §4)。
+- **Razer (RAZER SYNAPSE 置換) 追加 (2026-11-18)**: `razer.rs` — 90B feature report
+  (transaction 0x1F・CRC bytes[2..87] XOR)、制御は if0 `0001/02` のみ
+  (registry に `interface: Some(0)` を追加 — 同 usage が if1 にもあるため)。
+  DeathAdder V2 X HyperSpeed (ドングル **1532:009C**) 実機検証済:
+  FW/シリアル・DPI 5 段 (100–14000)・ポーリング 125/500/1000・電池 (0-255→%)・
+  スリープ 60–900s・低電池閾値 5–25% — 読み書き往復 `razere2e` で確認、
+  休眠は status 0x04 で検知 (asleep/HubEvent・覚醒で自動再読)。
+  **ボタン割当のデバイス側書き込みは Razer 全機種で未解読** (コミュニティも未 RE) →
+  `MouseCaps.buttons` 空で UI 出し分け無し。詳細は PROTOCOL_NOTES §6・fixtures/razer/。
+- **常時起動 (アプリ設定→常時起動)**: HKCU `Run` 登録のみ (`autostart.rs`・prefs.autostart・
+  起動時 `sync()` で exe 移動後に自己修復)。Synapse プロセス停止ボタン付き。
 
 ## ビルド / 実行
 

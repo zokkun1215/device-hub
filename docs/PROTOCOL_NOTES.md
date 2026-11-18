@@ -1104,3 +1104,109 @@ get/set は cmd が +0x80/同一値の関係。`devID` はプロファイル番�
 - 公式の日本語表示名: 移動同期 / 直線補正 / リップル / LOD / ガラスモード / 20K FPS / 競技モード / 角度調整 /
   スリープ時間 / スクロールBhop / ホイール応答時間 / デバウンスタイム / 高速トリガー / ドングルLED (信号) /
   プロファイルをリセット / 完全初期化。X-Y軸分離は DPI タブの X/Y 切り替えで扱う (設定行には出さない)。
+
+## 6. Razer (RAZER SYNAPSE 置換) — DeathAdder V2 X HyperSpeed 実機検証済み
+
+対象: Razer の 2.4G ドングル経由マウス。第一対応機種は
+**DeathAdder V2 X HyperSpeed (ドングル 1532:009C)**。2026-11-18 に Windows 11 +
+実機ドングルで全読み取りコマンドと書き込み往復を検証した
+(`examples/razerprobe` / `examples/razere2e`、キャプチャは `fixtures/razer/`)。
+
+### 6.1 出典と経緯
+
+- **OpenRazer** (GPL-2.0) の Linux カーネルドライバ `driver/razermouse_driver.c` /
+  `razerchromacommon.c` がこの機種 (`USB_DEVICE_ID_RAZER_DEATHADDER_V2_X_HYPERSPEED 0x009C`)
+  を公式サポートしており、コマンド表・transaction ID・CRC はそこから移植した。
+- Linux は SET_REPORT/GET_REPORT の **USB control transfer (wIndex=0)** で話すが、
+  Windows では同じものが「if0 の feature report」として見える — 実機で送受信可能。
+- Web configurator は存在しない (Synapse 専用機種) ので、解析は OpenRazer +
+  実機プローブで行った。Razer のボタン割り当て書き込みコマンドは**未解読** (§6.6)。
+
+### 6.2 デバイス識別 (実機列挙)
+
+ドングルは USB 複合デバイスで 5 interface:
+
+| IF | usage page/usage | 役割 | 備考 |
+|---|---|---|---|
+| **0** | 0001/02 | **マウス + 制御** | 91B feature report (report ID 0x00) はここだけ |
+| 1 | 0001/06, 0001/02, 000c/01, 0001/80, 0001/00×3 | キーボード/コンシューマ等 | feature report なし |
+| 2 | 0001/06 | キーボード (Report 4 = ボタンイベント口) | ドライバモード時に使用 |
+| 3 | 0059/01, 000c/01 | Razer ベンダー | サイズ違いで `HidD_SetFeature` 不可 (0x57) |
+| 4 | 0059/01 | Razer ベンダー | 同上 |
+
+- registry は `interface: Some(0)` + `usage 0001/02` で固定
+  (**if1 にも同名 usage のコレクションがある**ため usage だけでは不定)。
+- ドングル自身の USB シリアルは `000000000000`。製品文字列は
+  `Razer DeathAdder V2 X HyperSpeed`。
+- Razer Synapse 4 が入っている環境でも Windows の HID スタック (HidUsb) は生きており、
+  feature report は通る (実機で確認 — RZCONTROL はフィルタとして仮想 HID を足すのみ。
+  ただし Synapse 起動中は HID を取り合うので通常は終了させる)。
+- Bluetooth モードは別 PID で未対応 (本ドライバはドングル経由のみ)。
+
+### 6.3 トランスポート — 90B feature report
+
+```
+[reportID=00][status][txn=1F][remaining BE16=0000][proto=00][size][class][id][args×80][crc][rsvd=00]
+ バッファ 0      1      2      3..4                5      6     7     8      8..87    88    89
+```
+
+- **transaction ID は 0x1F 固定** (OpenRazer の機種別表。DA V2 X HS は 0x1F 系統)。
+- **CRC = 構造体 bytes[2..=87] の XOR** (status/txn を含まない)。実機応答で一致を確認。
+- 応答は要求の class/id をエコーし `status=02` が成功。`01`=busy、`03`=failure、
+  **`04`=timeout (マウス休眠中・ドングル単体で即応答)**、`05`=not supported。
+- 送信→受信の間に ~31ms (OpenRazer `RAZER_NEW_MOUSE_RECEIVER_WAIT_US`) を入れる。
+  応答バッファに**前回の応答が残る**ことがあるため、class/id エコーで新旧判定する。
+
+### 6.4 コマンド表 (読み書きとも実機確認)
+
+| class | id | size | 機能 | 引数 / 応答 |
+|---|---|---|---|---|
+| 00 | 81 | 02 | FW 取得 | 応答 `01 00` = **v1.00** |
+| 00 | 82 | 16 | シリアル | ASCII・NUL 終端 (`632506H22401201`) |
+| 00 | 85 | 01 | ポーリング取得 | `01`=1000Hz, `02`=500Hz, `08`=125Hz (実機: 01) |
+| 00 | 05 | 01 | ポーリング設定 | 同上のコードを args[0] へ |
+| 04 | 86 | 26 | DPI ステージ取得 | 要求 args[0]=`01` (VARSTORE) |
+| 04 | 06 | 26 | DPI ステージ設定 | 下記レイアウト (全 5 段分 38B 宣言) |
+| 04 | 85 | 07 | 現在段 DPI 取得 | 応答 `01 Xhi Xlo Yhi Ylo` |
+| 07 | 80 | 02 | バッテリー取得 | 応答 args[1] = **0..255** (`2b`→17%) |
+| 07 | 84 | 02 | 充電状態 | **status 05 で非対応** (単三電池 — 使用しない) |
+| 07 | 83 | 02 | スリープ秒取得 | BE16 (60..900。実機: 300s = 5 分) |
+| 07 | 03 | 02 | スリープ秒設定 | BE16 (公式は 60..900 にクランプ) |
+| 07 | 81 | 01 | 低バッテリー閾値取得 | `0x0C..0x3F` ≈ 5..25% (実機: `0x0D`) |
+| 07 | 01 | 01 | 低バッテリー閾値設定 | 同上 |
+
+DPI ステージ (get/set 共通):
+`args = [01][active 1ベース][count]` + 段ごと 7B `[番号 1ベース][X BE16][Y BE16][00][00]`。
+実機の初期状態は 4 段 500/600/1600/3200・現在段 2。範囲は OpenRazer 機種定義の
+DPI_MAX=14000・段数 5。**「段だけ切り替える」コマンドは無い**ので、
+切替は現在の全段を読んで active だけ変えて書き戻す。
+
+### 6.5 実機検証の記録 (2026-11-18)
+
+- 読み取り: 上記全コマンドが status 02 で応答。CRC・エコー・レイアウトすべて整合
+  (`fixtures/razer/*.bin` — CRC は実機値と一致)。
+- 休眠: マウス静止中は全コマンドが `status 04` で args ゼロ埋め。
+  マウスを動かすと即座に復帰。`DeviceInfo.asleep` に反映し、覚醒で自動再読。
+- **覚醒直後の一発目は `status 01` (busy) を返すことがある** — 再試行で即 OK。
+- **シリアルはデバイス状態によってゼロ埋め (空) を返す**ことがある
+  (初回キャプチャ時は `632506H22401201` を返した)。空のときは取得扱いにしない。
+- バッテリー: raw `0x2b` → 17% (OpenRazer daemon と同じ `round(raw*100/255)`)。
+- **書き込み往復 (`razere2e` = ドライバ経由) 6/6 PASS**:
+  ポーリング 500↔1000、スリープ 10↔5 分、低バッテリー閾値 15↔5%
+  (書込みは `floor(pct×2.55)` — Synapse の 13 ではなく OpenRazer 定数 12 を書く)、
+  DPI ステージ同一内容書き戻し、現在段 2↔1 切替+復元、電池。
+  いずれも読み戻しで一致を確認、元の設定へ復元済み。
+
+### 6.6 未対応・既知の限界
+
+- **ボタン割り当てのデバイス側書き込みは Razer 全機種で未解読。**
+  Razer の割当コマンドには公開 RE が存在せず (Non-Synapse-Mouse: "Razer's
+  button-mapping command isn't reverse-engineered yet")、既存の代替実装は
+  Windows フックによるソフトウェアリマップ。本ドライバは `MouseCaps.buttons`
+  を空で宣言し、UI のボタン割り当てタブ自体を出さない。
+- ドングル FW の読み出し・表面キャリブレーション・ドングルペアリングは未調査。
+- 「ドライバモード」(`00/04` args `[03,00]` — プロファイルボタンを if2 の
+  Report 4 経由でホストに流すモード) は OpenRazer/代替ツールに記述があるが、
+  本ドライバでは使わない (モードを変えるとマウス単体の動作が変わるため)。
+- Synapse を完全に置き換えるには、Synapse 側の自動起動を無効化して
+  本アプリの常時起動 (アプリ設定 → 常時起動 / HKCU Run) を ON にする。

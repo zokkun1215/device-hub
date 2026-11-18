@@ -26,6 +26,10 @@ pub struct Prefs {
     pub fw_check: bool,
     /// 更新が見つかったら Windows 通知にも出す (既定 OFF)。
     pub fw_native_notify: bool,
+    /// Windows ログオン時にこのアプリを自動起動する (常時起動)。
+    /// 実体は HKCU Run キー (autostart.rs)。起動時に実レジストリと同期する。
+    #[serde(default)]
+    pub autostart: bool,
     /// デバイスの別名 (DeviceId → 表示名)。
     pub nicknames: std::collections::BTreeMap<String, String>,
     /// ユーザーが保存した EQ プリセット (USB DAC 共通)。
@@ -135,6 +139,7 @@ impl Default for Prefs {
             idle_throttle: true,
             fw_check: true,
             fw_native_notify: false,
+            autostart: false,
             nicknames: Default::default(),
             eq_presets: vec![],
             livefx: Default::default(),

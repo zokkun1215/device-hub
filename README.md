@@ -20,6 +20,11 @@ with a Liquid Glass design.
   rapid-trigger / release points, deadzones, lighting, advanced keys
   (DKS/MPT/MT/TGL/SOCD/RS), macros, live travel-depth display, calibration.
 - **USB DAC** — parametric EQ editing.
+- **Razer (Synapse replacement)** — DPI stages, polling rate, battery, sleep and
+  low-battery threshold for Razer wireless mice, speaking the same 90-byte HID
+  feature reports Synapse uses — no Razer services, no account, no cloud.
+- **Always-on** — optional Windows logon autostart (`HKCU\...\Run` only; no
+  services, no background processes beyond the app itself).
 - **Process automation** — apply saved profiles when a specific app becomes
   foreground, with automatic restore on leave (multi-device profiles supported).
 - **OBS overlay plugin** (`devhub_obs.dll`) — live key/button press-depth source
@@ -35,9 +40,11 @@ with a Liquid Glass design.
 | HTS Plus Pro (wired + 2.4GHz dongle) | All settings incl. Rapid Trigger |
 | SU66 Max (Keebforce/Everglide) | Keymap, per-key perf, lighting, macros, live travel |
 | TP55 USB DAC | Parametric EQ |
+| Razer DeathAdder V2 X HyperSpeed (2.4GHz dongle) | DPI stages, polling rate, battery, sleep, low-battery threshold — Razer Synapse replacement (button remap: not reverse-engineered by the community yet) |
 
-Other models using the same protocols (mouse.fit report-8/EEPROM, xsyd) are
-detected automatically by capability, not by device name.
+Other models using the same protocols (mouse.fit report-8/EEPROM, xsyd, Razer
+90-byte feature reports) are detected automatically by capability, not by
+device name.
 
 ## Requirements
 
@@ -127,13 +134,18 @@ UI は GPUI + Liquid Glass デザイン。
 - **磁気キーボード** — オンボードレイヤー付きキーマップ・キーごとの AP/RT/リセット・
   デッドゾーン・ライティング・高度キー (DKS/MPT/MT/TGL/SOCD/RS)・マクロ・押下深さライブ表示
 - **USB DAC** — パラメトリック EQ
+- **Razer (Synapse 置換)** — Razer ワイヤレスマウスの DPI 段・ポーリング・電池・
+  スリープ・低バッテリー閾値を、Synapse と同じ 90B HID feature report で直接設定。
+  Razer のサービス・アカウント・クラウドは不要
+- **常時起動** — Windows ログオン時の自動起動 (HKCU Run 登録のみ。サービスや常駐プロセスは追加しない)
 - **プロセス連動** — 指定アプリが前面になったらプロファイルを適用、離れたら復帰 (複数デバイス対応)
 - **OBS プラグイン** — 押下深さのライブソース。アプリ無しで単体動作し、設定は OBS プロパティで完結
 - 設定・プロファイルのインポート/エクスポート、元に戻す、プリセット、コマンドパレット
 
 ### 動作確認デバイス
 
-HTS Plus Pro (有線+ドングル) · SU66 Max · TP55 USB DAC
+HTS Plus Pro (有線+ドングル) · SU66 Max · TP55 USB DAC ·
+Razer DeathAdder V2 X HyperSpeed (ドングル)
 (同プロトコルの他機種も caps ベースで自動検出)
 
 ### ビルド

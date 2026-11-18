@@ -22,6 +22,9 @@ use std::sync::{Arc, Mutex};
 pub mod atk;
 #[doc(hidden)]
 pub mod lamzu;
+/// Razer 系ドライバ (Synapse 置換)。診断 example (razere2e) からも使うので公開。
+#[doc(hidden)]
+pub mod razer;
 #[allow(dead_code)]
 mod mousefit;
 mod mousefit8;
@@ -52,6 +55,7 @@ fn driver_ready(kind: DriverKind) -> bool {
         DriverKind::Walkplay => true,
         DriverKind::Atk => true,
         DriverKind::Lamzu => true,
+        DriverKind::Razer => true,
         DriverKind::Unsupported => false,
     }
 }
@@ -86,9 +90,13 @@ impl HubBackend for RealHub {
         let prev_paths = std::mem::take(&mut *paths);
         names.clear();
         for d in api.device_list() {
-            let Some(spec) =
-                registry::match_device(d.vendor_id(), d.product_id(), d.usage_page(), d.usage())
-            else {
+            let Some(spec) = registry::match_device(
+                d.vendor_id(),
+                d.product_id(),
+                d.usage_page(),
+                d.usage(),
+                d.interface_number(),
+            ) else {
                 continue;
             };
             let serial = d
@@ -224,6 +232,7 @@ impl HubBackend for RealHub {
             DriverKind::Walkplay => Arc::new(walkplay::open(dev, info)?),
             DriverKind::Atk => Arc::new(atk::open(dev, info, events)?),
             DriverKind::Lamzu => Arc::new(lamzu::open(dev, info, events)?),
+            DriverKind::Razer => Arc::new(razer::open(dev, info, events)?),
             DriverKind::Unsupported => {
                 return Err(HubError::NotImplemented("このデバイスのドライバ"))
             }

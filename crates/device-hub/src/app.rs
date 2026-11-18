@@ -443,6 +443,10 @@ impl Shell {
         theme::set_font_id(&prefs.font);
         theme::set_glass(prefs.glass && std::env::var_os("DEVHUB_FAST").is_none());
         theme::set_motion(prefs.motion);
+        // 常時起動: exe を移動してもログオン時の起動が切れないよう実レジストリと同期。
+        if prefs.autostart {
+            crate::autostart::sync();
+        }
 
         let (tx, mut rx) = futures::channel::mpsc::unbounded::<Msg>();
         let (backend, _) = crate::store::connect_backend();

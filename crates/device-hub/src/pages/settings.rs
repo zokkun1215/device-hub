@@ -260,6 +260,64 @@ impl Shell {
                 )),
         );
 
+        let autostart = ui::card_titled("常時起動", "power", None).child(
+            ui::body()
+                .pb(px(12.))
+                .child(ui::row_first(
+                    "Windows 起動時に自動で立ち上げる",
+                    Some(
+                        "Synapse の代わりにこのアプリをログオン時に起動します。\
+                         プロセス自動適用・バッテリー表示・休眠検知を使うには常時起動が便利です",
+                    ),
+                    ui::toggle("autostart", self.prefs.autostart, cx, |this, on, cx| {
+                        match crate::autostart::set_enabled(on) {
+                            Ok(()) => {
+                                this.prefs.autostart = on;
+                                this.prefs.save();
+                                if on {
+                                    this.toast("自動起動を登録しました", false, cx);
+                                }
+                            }
+                            Err(e) => {
+                                this.toast(format!("自動起動の登録に失敗: {e}"), true, cx);
+                            }
+                        }
+                        cx.notify();
+                    }),
+                ))
+                .child(ui::row(
+                    "Razer Synapse を止める",
+                    Some(
+                        "Synapse が動いていると同じ HID を取り合います。置き換えるときは\
+                         タスクトレイの Razer Central を終了し、スタートアップ登録を外してください",
+                    ),
+                    ui::button(
+                        "kill-razer",
+                        "Synapse を終了",
+                        Some("x-circle"),
+                        Btn::Glass,
+                        cx,
+                        |this, _, cx| {
+                            // UI スレッドを止めないため、結果を待たずに投げる。
+                            let ps = "Get-Process | Where-Object { $_.Name -match '^Razer|^RzEngine|^razerwdl' } | Stop-Process -Force -ErrorAction SilentlyContinue";
+                            let spawned = std::process::Command::new("powershell")
+                                .args(["-NoProfile", "-Command", ps])
+                                .spawn()
+                                .is_ok();
+                            this.toast(
+                                if spawned {
+                                    "Razer プロセスの停止を試みています…".to_string()
+                                } else {
+                                    "PowerShell を起動できませんでした".to_string()
+                                },
+                                !spawned,
+                                cx,
+                            );
+                        },
+                    ),
+                )),
+        );
+
         let about = ui::card_titled("このアプリについて", "info", None).child(
             ui::body()
                 .pb(px(14.))
@@ -286,6 +344,7 @@ impl Shell {
                     .child(ui::grid2(vec![
                         look.into_any_element(),
                         backend.into_any_element(),
+                        autostart.into_any_element(),
                         fw.into_any_element(),
                         about.into_any_element(),
                     ])),

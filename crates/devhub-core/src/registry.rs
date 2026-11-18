@@ -18,6 +18,9 @@ pub struct KnownDevice {
     /// 設定用インターフェースの絞り込み (vendor-defined usage page)。分からなければ None。
     pub usage_page: Option<u16>,
     pub usage: Option<u16>,
+    /// USB interface 番号での絞り込み。同じ usage page/usage のコレクションが
+    /// 複数インターフェースにあるデバイス (Razer ドングルの 0001/02 等) でだけ使う。
+    pub interface: Option<i32>,
     pub kind: DeviceKind,
     pub vendor: &'static str,
     /// 機種識別子 (ドライバ内で機種差を引くキー)。
@@ -42,6 +45,7 @@ const fn mf(
         pid,
         usage_page: Some(0xFF02),
         usage: Some(0x02),
+        interface: None,
         kind: DeviceKind::Mouse,
         vendor: "G-Wolves",
         model,
@@ -71,6 +75,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wired,
         driver: DriverKind::Xsyd,
         verified: true,
+        interface: None,
     },
     // ---------------------------------------------------------------- マウス (mouse.fit)
     // HTS Plus Pro (PAW3955 版 JM_052_3955)。有線も report-8/EEPROM 経路 — 実機検証済。
@@ -130,6 +135,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wired,
         driver: DriverKind::Walkplay,
         verified: false,
+        interface: None,
     },
     // ATK F1 V3 ULTIMATE+ — 実機列挙 373b:12a7。config = ff02/u2 (report-8/EEPROM)。
     // 製品文字列 "ATK F1 V3 ULTIMATE+"。CID/MID=1,62 (公式 DB と一致)。
@@ -145,6 +151,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wired,
         driver: DriverKind::Atk,
         verified: true,
+        interface: None,
     },
     // ATK 8K ドングル "Wireless mouse 8k dongle-L" (373b:1278)。
     // 同じ 16B/report-8 プロトコルを中継 — 内側の機種は cmd16 CID/MID で確定。
@@ -161,6 +168,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wireless24G,
         driver: DriverKind::Atk,
         verified: true,
+        interface: None,
     },
     // ---------------------------------------------------------------- マウス (lamzu.net)
     // LAMZU Maya X V2 (LM20) 有線 — 実機列挙 37b0:0044。
@@ -177,6 +185,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wired,
         driver: DriverKind::Lamzu,
         verified: true,
+        interface: None,
     },
     // LAMZU Orbital 8K ドングル (37b0:0048) — 同じ FFFF:00 feature /
     // FFA0:01 通知レイアウトでマウス設定を中継する (実機列挙で確認)。
@@ -194,6 +203,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wireless24G,
         driver: DriverKind::Lamzu,
         verified: true,
+        interface: None,
     },
     // 同じ LM20 世代 (公式 env-models.json)。プロトコルは MAYA X V2 と共通 — 実機未確認。
     KnownDevice {
@@ -208,6 +218,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wired,
         driver: DriverKind::Lamzu,
         verified: false,
+        interface: None,
     },
     // 同じ LM20 世代 (公式 env-models.json)。プロトコルは MAYA X V2 と共通 — 実機未確認。
     KnownDevice {
@@ -222,6 +233,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wired,
         driver: DriverKind::Lamzu,
         verified: false,
+        interface: None,
     },
     // 同じ LM20 世代 (公式 env-models.json)。プロトコルは MAYA X V2 と共通 — 実機未確認。
     KnownDevice {
@@ -236,6 +248,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wired,
         driver: DriverKind::Lamzu,
         verified: false,
+        interface: None,
     },
     // 同じ LM20 世代 (公式 env-models.json)。プロトコルは MAYA X V2 と共通 — 実機未確認。
     KnownDevice {
@@ -250,6 +263,7 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wired,
         driver: DriverKind::Lamzu,
         verified: false,
+        interface: None,
     },
     // ATLANTIS MINI V2 用の 8K 受信機 (公式 _8KDongle=0054)。ペア先は GetDevicePID で判定。
     KnownDevice {
@@ -264,15 +278,38 @@ pub const KNOWN: &[KnownDevice] = &[
         transport: Transport::Wireless24G,
         driver: DriverKind::Lamzu,
         verified: false,
+        interface: None,
+    },
+    // ---------------------------------------------------------------- マウス (Razer — Synapse 置換)
+    // DeathAdder V2 X HyperSpeed 2.4G ドングル (1532:009C)。制御チャネルは if0
+    // (usage 0001/02) の 90B feature report (report ID 0x00)。同じ usage のコレクションが
+    // if1 にもあるので interface で固定する (実機列挙 2026-11-18)。
+    // transaction ID 0x1F・CRC は bytes[2..87] の XOR。プロトコル詳細は PROTOCOL_NOTES §6。
+    // ボタン割り当てのデバイス側書き込みコマンドは未解読 (Razer 共通・要 RE)。
+    KnownDevice {
+        vid: 0x1532,
+        pid: 0x009C,
+        usage_page: Some(0x0001),
+        usage: Some(0x02),
+        interface: Some(0),
+        kind: DeviceKind::Mouse,
+        vendor: "Razer",
+        model: "deathadder-v2-x-hyperspeed",
+        name: "DeathAdder V2 X HyperSpeed",
+        transport: Transport::Wireless24G,
+        driver: DriverKind::Razer,
+        verified: true,
     },
 ];
 
-/// 列挙結果 (VID/PID/usage) に合う既知デバイス。`0xFFFF` のプレースホルダは一致しない。
+/// 列挙結果 (VID/PID/usage/interface) に合う既知デバイス。`0xFFFF` のプレースホルダは一致しない。
+/// `interface` は hidapi の `interface_number()` (取れない BT 等は -1)。
 pub fn match_device(
     vid: u16,
     pid: u16,
     usage_page: u16,
     usage: u16,
+    interface: i32,
 ) -> Option<&'static KnownDevice> {
     KNOWN.iter().find(|k| {
         k.vid == vid
@@ -280,6 +317,7 @@ pub fn match_device(
             && k.vid != 0xFFFF
             && k.usage_page.is_none_or(|p| p == usage_page)
             && k.usage.is_none_or(|u| u == usage)
+            && k.interface.is_none_or(|i| i == interface)
     })
 }
 

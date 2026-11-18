@@ -11,6 +11,7 @@
 
 pub mod app;
 pub mod audio;
+pub mod autostart;
 pub mod cursor;
 pub mod fwstate;
 pub mod glass;

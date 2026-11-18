@@ -72,6 +72,9 @@ pub enum DriverKind {
     Atk,
     /// www.lamzu.net / Aurora 系 (64B feature report、if2 FFFF:00)。
     Lamzu,
+    /// Razer 系 (Synapse 置換)。90B feature report、transaction ID は機種ごとに固定
+    /// (OpenRazer driver/razermouse_driver.c の RE 成果の移植 + 実機検証)。
+    Razer,
     /// 未割り当て (検出だけできる)。
     Unsupported,
 }
